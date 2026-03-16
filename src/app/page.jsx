@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { CHECKLIST, verifyMath, calcScore } from "@/lib/checklist";
+import { CHECKLIST, verifyMath, verifyForensics, calcScore } from "@/lib/checklist";
 
 /* ===== API helpers ===== */
 function getToken() { return typeof window !== "undefined" ? localStorage.getItem("vectra_token") : null; }
@@ -28,6 +28,7 @@ const T = {
   ok:"#16a34a", okBg:"#f0fdf4", okBd:"#bbf7d0",
   wn:"#d97706", wnBg:"#fffbeb", wnBd:"#fde68a",
   er:"#dc2626", erBg:"#fef2f2", erBd:"#fecaca",
+  fr:"#7c3aed", frBg:"#f5f3ff", frBd:"#ddd6fe",
 };
 
 /* ===== ICONS ===== */
@@ -37,6 +38,7 @@ const Ic = {
   ok: <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round"/></svg>,
   wn: <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#d97706" strokeWidth="2" strokeLinecap="round"/></svg>,
   er: <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#dc2626" strokeWidth="2"/><path d="M15 9l-6 6M9 9l6 6" stroke="#dc2626" strokeWidth="2" strokeLinecap="round"/></svg>,
+  forensic: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v6m12-4v4m0 0H9m12 0v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9m6 0H3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="14" cy="14" r="3" stroke="currentColor" strokeWidth="1.5"/><path d="M16.5 16.5L19 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
   bk: <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M19 12H5m0 0l7 7m-7-7l7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   pl: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M12 5v14m-7-7h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>,
   cl: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
@@ -46,6 +48,7 @@ const Ic = {
   sr: <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
   users: <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m8-10a4 4 0 100-8 4 4 0 000 8zm13 10v-2a4 4 0 00-3-3.87m-4-12a4 4 0 010 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
   file: <svg width="32" height="32" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="#94a3b8" strokeWidth="1.5"/><path d="M14 2v6h6" stroke="#94a3b8" strokeWidth="1.5"/></svg>,
+  eye: <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" stroke="currentColor" strokeWidth="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/></svg>,
 };
 
 /* ===== UI COMPONENTS ===== */
@@ -73,9 +76,123 @@ function Badge({ status }) {
   return (<span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"3px 10px", borderRadius:20, fontSize:12, fontWeight:600, background:s.bg, color:s.c, border:"1px solid "+s.bd, whiteSpace:"nowrap" }}>{status==="warn"?Ic.wn:Ic.er}{s.t}</span>);
 }
 
-function Fold({ title, children, className:cn="", style:st={} }) {
-  const [o, setO] = useState(false);
+function Fold({ title, children, className:cn="", style:st={}, defaultOpen }) {
+  const [o, setO] = useState(defaultOpen || false);
   return (<Card className={cn} style={{ ...st, padding:0, overflow:"hidden" }}><button onClick={()=>setO(!o)} style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 22px", background:"none", border:"none", cursor:"pointer", fontSize:15, fontWeight:600, color:T.tx, textAlign:"left" }}>{title}<span style={{ fontSize:18, color:T.tx3, transition:"transform .2s", transform:o?"rotate(180deg)":"none" }}>▾</span></button>{o&&<div style={{ padding:"0 22px 18px" }}>{children}</div>}</Card>);
+}
+
+/* ===== FORENSIC PANEL ===== */
+function ForensicPanel({ forensics, checks }) {
+  if (!forensics) return null;
+
+  const forensicChecks = checks?.filter(c => c.id?.startsWith("6.")) || [];
+  const hasIssues = forensicChecks.some(c => c.status === "fail" || c.status === "warn");
+  const failCount = forensicChecks.filter(c => c.status === "fail").length;
+  const warnCount = forensicChecks.filter(c => c.status === "warn").length;
+
+  // Determine overall forensic risk level
+  const riskLevel = failCount >= 2 ? "high" : failCount >= 1 || warnCount >= 2 ? "medium" : "low";
+  const riskColors = {
+    high: { bg: T.erBg, bd: T.erBd, c: T.er, label: "ВЫСОКИЙ РИСК ПОДДЕЛКИ" },
+    medium: { bg: T.wnBg, bd: T.wnBd, c: T.wn, label: "ТРЕБУЕТ ВНИМАНИЯ" },
+    low: { bg: T.okBg, bd: T.okBd, c: T.ok, label: "ПРИЗНАКИ ПОДДЕЛКИ НЕ ОБНАРУЖЕНЫ" },
+  };
+  const risk = riskColors[riskLevel];
+
+  return (
+    <Card className="f2" style={{ marginBottom: 14, border: "2px solid " + risk.bd }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: T.fr + "18", display: "flex", alignItems: "center", justifyContent: "center", color: T.fr }}>{Ic.forensic}</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+            Форензика
+            <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: risk.bg, color: risk.c, border: "1px solid " + risk.bd }}>{risk.label}</span>
+          </div>
+          <div style={{ fontSize: 13, color: T.tx2 }}>Анализ подлинности документа</div>
+        </div>
+      </div>
+
+      {/* Risk banner for high risk */}
+      {riskLevel === "high" && (
+        <div style={{ padding: "12px 16px", borderRadius: 10, background: T.erBg, border: "1px solid " + T.erBd, marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
+          {Ic.er}
+          <div>
+            <div style={{ fontWeight: 700, color: T.er, fontSize: 14 }}>Обнаружены серьёзные признаки подделки</div>
+            <div style={{ fontSize: 13, color: T.tx2 }}>Рекомендуется запросить оригинал документа у поставщика</div>
+          </div>
+        </div>
+      )}
+
+      {/* Metadata section */}
+      {(forensics.creator || forensics.producer || forensics.creationDate) && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.tx3, marginBottom: 8, letterSpacing: 0.5 }}>МЕТАДАННЫЕ ДОКУМЕНТА</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 6 }}>
+            {[
+              ["Создатель", forensics.creator, forensics.suspiciousSoftware],
+              ["PDF-движок", forensics.producer, false],
+              ["Автор", forensics.author, false],
+              ["Дата создания", forensics.creationDate ? new Date(forensics.creationDate).toLocaleString("ru") : null, false],
+              ["Дата изменения", forensics.modDate ? new Date(forensics.modDate).toLocaleString("ru") : null, forensics.dateMismatch],
+              ["Ревизий", forensics.revisionCount > 0 ? String(forensics.revisionCount) : null, forensics.multipleRevisions],
+              ["Изображений", forensics.embeddedImageCount > 0 ? String(forensics.embeddedImageCount) : null, false],
+            ].filter(([, v]) => v).map(([label, value, alert], i) => (
+              <div key={i} style={{ padding: "7px 10px", borderRadius: 8, background: alert ? T.erBg : T.bg, border: alert ? "1px solid " + T.erBd : "none" }}>
+                <div style={{ fontSize: 11, color: alert ? T.er : T.tx3 }}>{label}</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: alert ? T.er : T.tx, wordBreak: "break-word" }}>{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Flags */}
+      {forensics.flags?.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.tx3, marginBottom: 8, letterSpacing: 0.5 }}>ОБНАРУЖЕННЫЕ ФЛАГИ</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {forensics.flags.map((flag, i) => (
+              <div key={i} style={{ padding: "8px 12px", borderRadius: 8, background: T.erBg, border: "1px solid " + T.erBd, fontSize: 13, color: T.er, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <span style={{ flexShrink: 0, marginTop: 1 }}>{Ic.er}</span>
+                <span>{flag}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Forensic checks detail */}
+      {forensicChecks.length > 0 && (
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.tx3, marginBottom: 8, letterSpacing: 0.5 }}>ПРОВЕРКИ ПОДЛИННОСТИ</div>
+          {forensicChecks.map((ch, i) => {
+            const def = CHECKLIST.find(c => c.id === ch.id);
+            if (!def || ch.status === "skip") return null;
+            return (
+              <div key={ch.id} style={{ padding: "10px 0", borderBottom: i < forensicChecks.length - 1 ? "1px solid " + T.bdL : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <div style={{ minWidth: 18 }}>{ch.status === "ok" ? Ic.ok : ch.status === "warn" ? Ic.wn : Ic.er}</div>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}><span style={{ color: T.tx3 }}>{ch.id}</span> {def.name}</span>
+                  <Badge status={ch.status}/>
+                  <span style={{ marginLeft: "auto", fontSize: 11, color: T.tx3 }}>{def.w}б</span>
+                </div>
+                {ch.comment && <div style={{ fontSize: 13, color: T.tx2, lineHeight: 1.5, marginLeft: 26 }}>{ch.comment}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Forensic notes from AI */}
+      {forensics.forensic_notes && (
+        <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 10, background: T.frBg || "#f5f3ff", border: "1px solid " + (T.frBd || "#ddd6fe") }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.fr, marginBottom: 4 }}>ЗАМЕТКИ ФОРЕНЗИКА (AI)</div>
+          <div style={{ fontSize: 13, color: T.tx2, lineHeight: 1.5 }}>{forensics.forensic_notes}</div>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 /* ===== LOGIN ===== */
@@ -124,10 +241,12 @@ function Upload({ user, onDone, onBack }) {
     try {
       sProg("Загрузка документа...");
       const b = await new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res(r.result.split(",")[1]); r.onerror=rej; r.readAsDataURL(file); });
-      sProg("ВЕКТРА анализирует документ...");
+      sProg("Форензик-анализ и проверка AI...");
       const result = await api("/api/analyze", { method:"POST", body:JSON.stringify({ base64:b, fileType:file.type }) });
       // Client-side math verification
       result.checks = verifyMath(result.extracted, result.checks);
+      // Client-side forensic verification (deterministic checks from metadata)
+      result.checks = verifyForensics(result.forensics, result.checks);
       const sc = calcScore(result.checks);
       sProg("Сохранение...");
       const saved = await api("/api/checks", { method:"POST", body:JSON.stringify({ ...result, score:sc, fileName:file.name, fileType:file.type }) });
@@ -154,8 +273,8 @@ function Upload({ user, onDone, onBack }) {
         <Card className="fu" style={{ textAlign:"center", padding:44 }}>
           <div style={{ width:40, height:40, border:"3px solid "+T.bd, borderTopColor:T.acc, borderRadius:"50%", animation:"spin .8s linear infinite", margin:"0 auto 18px" }}/>
           <div style={{ fontSize:16, fontWeight:600, marginBottom:4 }}>{prog}</div>
-          <div style={{ color:T.tx2, fontSize:14 }}>Обычно 15–30 сек</div>
-          <div style={{ marginTop:18, height:4, background:T.bg, borderRadius:2, overflow:"hidden" }}><div style={{ height:"100%", background:T.acc, borderRadius:2, animation:"prog 25s ease-out forwards" }}/></div>
+          <div style={{ color:T.tx2, fontSize:14 }}>Форензик-анализ + AI проверка — 20–40 сек</div>
+          <div style={{ marginTop:18, height:4, background:T.bg, borderRadius:2, overflow:"hidden" }}><div style={{ height:"100%", background:T.acc, borderRadius:2, animation:"prog 35s ease-out forwards" }}/></div>
         </Card>
       )}
     </div>
@@ -169,6 +288,11 @@ function Result({ result:R, onBack, onSave, userRole }) {
   const issues = [], allG = {};
   CHECKLIST.forEach(c => { const ch = cks.find(x=>x.id===c.id)||{status:"skip",comment:""}; if(!allG[c.cat])allG[c.cat]=[]; allG[c.cat].push({...c,...ch}); if(ch.status==="warn"||ch.status==="fail") issues.push({...c,...ch}); });
   const st = { ok:0, warn:0, fail:0, skip:0 }; cks.forEach(c => { if(st[c.status]!==undefined) st[c.status]++; });
+
+  // Separate forensic issues for prominent display
+  const forensicIssues = issues.filter(i => i.id?.startsWith("6."));
+  const otherIssues = issues.filter(i => !i.id?.startsWith("6."));
+
   const save = async (d) => {
     sDec(d);
     try { if(R.id) await api("/api/checks", { method:"PATCH", body:JSON.stringify({ id:R.id, decision:d }) }); } catch {}
@@ -178,6 +302,8 @@ function Result({ result:R, onBack, onSave, userRole }) {
   return (
     <div className="fu" style={{ maxWidth:720, margin:"0 auto" }}>
       <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:24 }}><button onClick={onBack} style={{ background:"none", border:"none", color:T.tx2, cursor:"pointer" }}>{Ic.bk}</button><h2 style={{ fontSize:19, fontWeight:700, flex:1 }}>Результат проверки</h2><span style={{ fontSize:13, color:T.tx3 }}>{new Date(R.created_at||R.date||Date.now()).toLocaleString("ru")}</span></div>
+
+      {/* Score card */}
       <Card className="fu" style={{ marginBottom:14, display:"flex", gap:24, alignItems:"center", flexWrap:"wrap" }}>
         <Ring s={sc}/>
         <div style={{ flex:1, minWidth:180 }}>
@@ -191,16 +317,35 @@ function Result({ result:R, onBack, onSave, userRole }) {
           {ex && (<div style={{ fontSize:13, color:T.tx2, lineHeight:1.5 }}>{ex.doc_type} {ex.doc_number&&("№"+ex.doc_number)} {ex.doc_date&&("от "+ex.doc_date)}{ex.supplier_name&&(<><br/><b style={{ color:T.tx }}>{ex.supplier_name}</b></>)}{ex.supplier_inn&&(<span style={{ color:T.tx3 }}> · ИНН {ex.supplier_inn}</span>)}{ex.buyer_name&&(<><br/>→ {ex.buyer_name}</>)}</div>)}
         </div>
       </Card>
-      {issues.length>0 ? (
+
+      {/* FORENSIC PANEL — always shown prominently */}
+      <ForensicPanel forensics={R.forensics} checks={cks}/>
+
+      {/* AI forensic notes from extracted data */}
+      {ex?.forensic_notes && !R.forensics?.forensic_notes && (
+        <Card className="f1" style={{ marginBottom: 14, border: "1px solid " + T.frBd }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            {Ic.eye}
+            <span style={{ fontSize: 14, fontWeight: 700, color: T.fr }}>Визуальные наблюдения AI</span>
+          </div>
+          <div style={{ fontSize: 13, color: T.tx2, lineHeight: 1.6 }}>{ex.forensic_notes}</div>
+        </Card>
+      )}
+
+      {/* Other issues (non-forensic) */}
+      {otherIssues.length>0 ? (
         <Card className="f1" style={{ marginBottom:14 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:14 }}>{Ic.wn}<span style={{ fontSize:15, fontWeight:700 }}>Замечания ({issues.length})</span></div>
-          {issues.map((it,i) => (<div key={it.id} style={{ padding:"12px 0", borderBottom:i<issues.length-1?"1px solid "+T.bdL:"none" }}><div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}><Badge status={it.status}/><span style={{ fontSize:14, fontWeight:600 }}><span style={{ color:T.tx3 }}>{it.id}</span> {it.name}</span><span style={{ marginLeft:"auto", fontSize:12, color:T.tx3 }}>{it.w}б</span></div>{it.comment&&<div style={{ fontSize:13, color:T.tx2, lineHeight:1.5 }}>{it.comment}</div>}</div>))}
+          <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:14 }}>{Ic.wn}<span style={{ fontSize:15, fontWeight:700 }}>Замечания ({otherIssues.length})</span></div>
+          {otherIssues.map((it,i) => (<div key={it.id} style={{ padding:"12px 0", borderBottom:i<otherIssues.length-1?"1px solid "+T.bdL:"none" }}><div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}><Badge status={it.status}/><span style={{ fontSize:14, fontWeight:600 }}><span style={{ color:T.tx3 }}>{it.id}</span> {it.name}</span><span style={{ marginLeft:"auto", fontSize:12, color:T.tx3 }}>{it.w}б</span></div>{it.comment&&<div style={{ fontSize:13, color:T.tx2, lineHeight:1.5 }}>{it.comment}</div>}</div>))}
         </Card>
       ) : (
-        <Card className="f1" style={{ marginBottom:14, display:"flex", alignItems:"center", gap:10, padding:18 }}>{Ic.ok}<div><div style={{ fontWeight:600, color:T.ok }}>Замечаний нет</div><div style={{ fontSize:13, color:T.tx2 }}>Все {st.ok} проверок пройдены</div></div></Card>
+        <Card className="f1" style={{ marginBottom:14, display:"flex", alignItems:"center", gap:10, padding:18 }}>{Ic.ok}<div><div style={{ fontWeight:600, color:T.ok }}>Замечаний нет</div><div style={{ fontSize:13, color:T.tx2 }}>Все проверки (кроме форензики) пройдены</div></div></Card>
       )}
-      {ex && <Fold title="Извлечённые данные" className="f2" style={{ marginBottom:14 }}><div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))", gap:8 }}>{[["Тип",ex.doc_type],["Номер",ex.doc_number],["Дата",ex.doc_date],["Поставщик",ex.supplier_name],["ИНН",ex.supplier_inn],["КПП",ex.supplier_kpp],["Покупатель",ex.buyer_name],["Итого",ex.total_sum],["НДС",ex.nds_sum],["Прописью",ex.total_words]].filter(([,v])=>v&&v!=="null").map(([k,v],i)=>(<div key={i} style={{ padding:"7px 10px", background:T.bg, borderRadius:8 }}><div style={{ fontSize:11, color:T.tx3 }}>{k}</div><div style={{ fontSize:13, fontWeight:500, wordBreak:"break-word" }}>{String(v)}</div></div>))}</div></Fold>}
-      {userRole==="admin" && <Fold title={"Полный чеклист ("+cks.length+")"} className="f2" style={{ marginBottom:14 }}>{Object.entries(allG).map(([cat,items])=>(<div key={cat} style={{ marginBottom:14 }}><div style={{ fontSize:12, fontWeight:700, color:T.acc, marginBottom:6 }}>{cat.toUpperCase()}</div>{items.map(it=>(<div key={it.id} style={{ display:"flex", alignItems:"flex-start", gap:8, padding:"7px 0", borderBottom:"1px solid "+T.bdL }}><div style={{ minWidth:18, marginTop:1 }}>{it.status==="ok"?Ic.ok:it.status==="warn"?Ic.wn:it.status==="fail"?Ic.er:<span style={{ color:T.tx3, fontSize:11 }}>—</span>}</div><div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:500 }}><span style={{ color:T.tx3 }}>{it.id}</span> {it.name}</div>{it.comment&&<div style={{ fontSize:12, color:T.tx2, marginTop:1 }}>{it.comment}</div>}</div><div style={{ fontSize:11, color:T.tx3 }}>{it.w}б</div></div>))}</div>))}</Fold>}
+
+      {ex && <Fold title="Извлечённые данные" className="f2" style={{ marginBottom:14 }}><div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))", gap:8 }}>{[["Тип",ex.doc_type],["Номер",ex.doc_number],["Дата",ex.doc_date],["Поставщик",ex.supplier_name],["ИНН",ex.supplier_inn],["КПП",ex.supplier_kpp],["Адрес",ex.supplier_address],["Банк",ex.supplier_bank],["БИК",ex.supplier_bik],["Покупатель",ex.buyer_name],["Итого",ex.total_sum],["НДС",ex.nds_sum],["Прописью",ex.total_words]].filter(([,v])=>v&&v!=="null").map(([k,v],i)=>(<div key={i} style={{ padding:"7px 10px", background:T.bg, borderRadius:8 }}><div style={{ fontSize:11, color:T.tx3 }}>{k}</div><div style={{ fontSize:13, fontWeight:500, wordBreak:"break-word" }}>{String(v)}</div></div>))}</div></Fold>}
+
+      {userRole==="admin" && <Fold title={"Полный чеклист ("+cks.length+")"} className="f2" style={{ marginBottom:14 }}>{Object.entries(allG).map(([cat,items])=>(<div key={cat} style={{ marginBottom:14 }}><div style={{ fontSize:12, fontWeight:700, color:cat.includes("Форензика")?T.fr:T.acc, marginBottom:6 }}>{cat.toUpperCase()}</div>{items.map(it=>(<div key={it.id} style={{ display:"flex", alignItems:"flex-start", gap:8, padding:"7px 0", borderBottom:"1px solid "+T.bdL }}><div style={{ minWidth:18, marginTop:1 }}>{it.status==="ok"?Ic.ok:it.status==="warn"?Ic.wn:it.status==="fail"?Ic.er:<span style={{ color:T.tx3, fontSize:11 }}>—</span>}</div><div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:500 }}><span style={{ color:T.tx3 }}>{it.id}</span> {it.name}</div>{it.comment&&<div style={{ fontSize:12, color:T.tx2, marginTop:1 }}>{it.comment}</div>}</div><div style={{ fontSize:11, color:T.tx3 }}>{it.w}б</div></div>))}</div>))}</Fold>}
+
       <Card className="f3" style={{ marginBottom:36 }}>
         <div style={{ fontSize:15, fontWeight:700, marginBottom:12 }}>Ваше решение</div>
         {saved ? (<div style={{ display:"flex", alignItems:"center", gap:9, padding:12, borderRadius:10, background:dec==="genuine"?T.okBg:dec==="suspicious"?T.wnBg:T.erBg, border:"1px solid "+(dec==="genuine"?T.okBd:dec==="suspicious"?T.wnBd:T.erBd) }}><span style={{ fontWeight:600, color:dec==="genuine"?T.ok:dec==="suspicious"?T.wn:T.er }}>{"✓ "+(dec==="genuine"?"Подлинный":dec==="suspicious"?"Сомнительный":"Поддельный")}</span></div>) : (
@@ -225,7 +370,28 @@ function History({ checks:all, user:u, onView, onBack }) {
       <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:20 }}><button onClick={onBack} style={{ background:"none", border:"none", color:T.tx2, cursor:"pointer" }}>{Ic.bk}</button><h2 style={{ fontSize:19, fontWeight:700, flex:1 }}>История</h2><span style={{ color:T.tx3, fontSize:14 }}>{vis.length}</span></div>
       <div style={{ marginBottom:14, position:"relative" }}><div style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:T.tx3 }}>{Ic.sr}</div><input value={q} onChange={e=>sQ(e.target.value)} placeholder="Поиск..." style={{ width:"100%", padding:"10px 14px 10px 38px", background:"#fff", border:"1px solid "+T.bd, borderRadius:12, fontSize:14, outline:"none" }}/></div>
       {vis.length===0 ? <Card style={{ textAlign:"center", padding:36, color:T.tx2 }}>Пока пусто</Card> :
-        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>{vis.map((c,i)=>(<Card key={c.id||i} style={{ cursor:"pointer", padding:14 }} onClick={()=>onView(c)}><div style={{ display:"flex", alignItems:"center", gap:14 }}><Ring s={c.score} sz={44}/><div style={{ flex:1, minWidth:0 }}><div style={{ fontWeight:600, fontSize:14, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.extracted?.supplier_name||c.file_name}</div><div style={{ fontSize:12, color:T.tx2 }}>{c.extracted?.doc_type}</div></div><div style={{ textAlign:"right", flexShrink:0 }}><div style={{ fontSize:12, color:T.tx3 }}>{new Date(c.created_at).toLocaleDateString("ru")}</div>{c.decision&&(<span style={{ display:"inline-block", marginTop:3, padding:"2px 8px", borderRadius:10, fontSize:11, fontWeight:600, background:c.decision==="genuine"?T.okBg:c.decision==="suspicious"?T.wnBg:T.erBg, color:c.decision==="genuine"?T.ok:c.decision==="suspicious"?T.wn:T.er }}>{c.decision==="genuine"?"Подлинный":c.decision==="suspicious"?"Сомн.":"Подделка"}</span>)}</div></div></Card>))}</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:7 }}>{vis.map((c,i)=>{
+          // Check if this check has forensic issues
+          const hasForensicIssue = c.checks?.some(ch => ch.id?.startsWith("6.") && (ch.status === "fail" || ch.status === "warn"));
+          return (
+            <Card key={c.id||i} style={{ cursor:"pointer", padding:14, ...(hasForensicIssue ? { borderColor: T.erBd } : {}) }} onClick={()=>onView(c)}>
+              <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+                <Ring s={c.score} sz={44}/>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:600, fontSize:14, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:6 }}>
+                    {c.extracted?.supplier_name||c.file_name}
+                    {hasForensicIssue && <span style={{ fontSize:10, padding:"2px 6px", borderRadius:6, background:T.erBg, color:T.er, fontWeight:700, flexShrink:0 }}>ПОДДЕЛКА?</span>}
+                  </div>
+                  <div style={{ fontSize:12, color:T.tx2 }}>{c.extracted?.doc_type}</div>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0 }}>
+                  <div style={{ fontSize:12, color:T.tx3 }}>{new Date(c.created_at).toLocaleDateString("ru")}</div>
+                  {c.decision&&(<span style={{ display:"inline-block", marginTop:3, padding:"2px 8px", borderRadius:10, fontSize:11, fontWeight:600, background:c.decision==="genuine"?T.okBg:c.decision==="suspicious"?T.wnBg:T.erBg, color:c.decision==="genuine"?T.ok:c.decision==="suspicious"?T.wn:T.er }}>{c.decision==="genuine"?"Подлинный":c.decision==="suspicious"?"Сомн.":"Подделка"}</span>)}
+                </div>
+              </div>
+            </Card>
+          );
+        })}</div>
       }
     </div>
   );
@@ -328,6 +494,7 @@ function Admin({ onBack }) {
 function Dash({ user:u, checks:all, onNew, onHist, onAdmin, onOut }) {
   const avg = all.length ? Math.round(all.reduce((s,c) => s+c.score, 0)/all.length) : 0;
   const bad = all.filter(c => c.score < 50).length;
+  const forged = all.filter(c => c.checks?.some(ch => ch.id?.startsWith("6.") && ch.status === "fail")).length;
   const rec = all.slice(0, 5);
 
   return (
@@ -339,9 +506,14 @@ function Dash({ user:u, checks:all, onNew, onHist, onAdmin, onOut }) {
         </div>
         <button onClick={onOut} style={{ display:"flex", alignItems:"center", gap:4, background:"none", border:"none", color:T.tx3, cursor:"pointer", fontSize:13 }}>{Ic.out} Выход</button>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:18 }}>
-        {[{ l:"Проверок", v:all.length, icon:Ic.doc, c:T.acc }, { l:"Ср. рейтинг", v:avg+"%", icon:Ic.bar, c:avg>=70?T.ok:avg>=40?T.wn:T.er }, { l:"Подозрительных", v:bad, icon:Ic.er, c:bad?T.er:T.ok }].map((s,i)=>(
-          <Card key={i} className={"f"+(i+1)} style={{ padding:16 }}><div style={{ color:s.c, marginBottom:4 }}>{s.icon}</div><div style={{ fontSize:24, fontWeight:700, color:s.c, fontFamily:"'JetBrains Mono'" }}>{s.v}</div><div style={{ fontSize:13, color:T.tx2 }}>{s.l}</div></Card>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:18 }}>
+        {[
+          { l:"Проверок", v:all.length, icon:Ic.doc, c:T.acc },
+          { l:"Ср. рейтинг", v:avg+"%", icon:Ic.bar, c:avg>=70?T.ok:avg>=40?T.wn:T.er },
+          { l:"Подозрительных", v:bad, icon:Ic.wn, c:bad?T.wn:T.ok },
+          { l:"Подделки", v:forged, icon:Ic.forensic, c:forged?T.er:T.ok },
+        ].map((s,i)=>(
+          <Card key={i} className={"f"+(i+1)} style={{ padding:16 }}><div style={{ color:s.c, marginBottom:4 }}>{s.icon}</div><div style={{ fontSize:22, fontWeight:700, color:s.c, fontFamily:"'JetBrains Mono'" }}>{s.v}</div><div style={{ fontSize:12, color:T.tx2 }}>{s.l}</div></Card>
         ))}
       </div>
       <div style={{ display:"flex", gap:8, marginBottom:18, flexWrap:"wrap" }}>
@@ -352,7 +524,22 @@ function Dash({ user:u, checks:all, onNew, onHist, onAdmin, onOut }) {
       {rec.length>0 && (
         <Card className="f3">
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}><span style={{ fontSize:15, fontWeight:700 }}>Последние</span><button onClick={onHist} style={{ background:"none", border:"none", color:T.acc, cursor:"pointer", fontSize:13, fontWeight:500 }}>Все →</button></div>
-          {rec.map((c,i)=>(<div key={c.id||i} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:i<rec.length-1?"1px solid "+T.bdL:"none" }}><Ring s={c.score} sz={40}/><div style={{ flex:1, minWidth:0, marginLeft:4 }}><div style={{ fontWeight:600, fontSize:14, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.extracted?.supplier_name||c.file_name}</div><div style={{ fontSize:12, color:T.tx3, marginTop:2 }}>{c.extracted?.doc_type}</div></div><div style={{ fontSize:12, color:T.tx3, flexShrink:0 }}>{new Date(c.created_at).toLocaleDateString("ru")}</div></div>))}
+          {rec.map((c,i)=>{
+            const hasForensicIssue = c.checks?.some(ch => ch.id?.startsWith("6.") && ch.status === "fail");
+            return (
+              <div key={c.id||i} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:i<rec.length-1?"1px solid "+T.bdL:"none" }}>
+                <Ring s={c.score} sz={40}/>
+                <div style={{ flex:1, minWidth:0, marginLeft:4 }}>
+                  <div style={{ fontWeight:600, fontSize:14, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:6 }}>
+                    {c.extracted?.supplier_name||c.file_name}
+                    {hasForensicIssue && <span style={{ fontSize:9, padding:"1px 5px", borderRadius:4, background:T.erBg, color:T.er, fontWeight:700 }}>!</span>}
+                  </div>
+                  <div style={{ fontSize:12, color:T.tx3, marginTop:2 }}>{c.extracted?.doc_type}</div>
+                </div>
+                <div style={{ fontSize:12, color:T.tx3, flexShrink:0 }}>{new Date(c.created_at).toLocaleDateString("ru")}</div>
+              </div>
+            );
+          })}
         </Card>
       )}
     </div>

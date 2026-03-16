@@ -36,6 +36,7 @@ export async function POST(req) {
       file_type: body.fileType,
       extracted: body.extracted,
       checks: body.checks,
+      forensics: body.forensics || null,
       score: body.score,
       decision: body.decision || null,
     })
