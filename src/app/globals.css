@@ -2,16 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+* { box-sizing: border-box; }
 
 body {
   font-family: 'DM Sans', system-ui, sans-serif;
+  background: #0c1222;
+  color: #e2e8f0;
+  -webkit-font-smoothing: antialiased;
 }
 
-@keyframes fu { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+input, select, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+input::placeholder { color: #475569; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e3048; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2a3f5c; }
+
+/* Animations */
+@keyframes fu   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes prog { from { width: 5%; } to { width: 92%; } }
-.fu { animation: fu .3s ease both; }
-.f1 { animation: fu .3s .07s ease both; }
-.f2 { animation: fu .3s .14s ease both; }
-.f3 { animation: fu .3s .21s ease both; }
+@keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 8px rgba(59,130,246,0.15); } 50% { box-shadow: 0 0 20px rgba(59,130,246,0.3); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+.fu { animation: fu .35s ease both; }
+.f1 { animation: fu .35s .06s ease both; }
+.f2 { animation: fu .35s .12s ease both; }
+.f3 { animation: fu .35s .18s ease both; }
+.f4 { animation: fu .35s .24s ease both; }

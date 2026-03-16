@@ -2,13 +2,13 @@ import "./globals.css";
 
 export const metadata = {
   title: "ВЕКТРА — Проверка документов",
-  description: "Система проверки конкурентных предложений на подлинность",
+  description: "Система проверки конкурентных предложений на подлинность с форензик-анализом",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="ru">
-      <body className="bg-gray-50 text-slate-800">{children}</body>
+      <body>{children}</body>
     </html>
   );
 }
