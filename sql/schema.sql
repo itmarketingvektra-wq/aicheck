@@ -23,10 +23,14 @@ CREATE TABLE checks (
   file_type TEXT,
   extracted JSONB,
   checks JSONB,
+  forensics JSONB,
   score INTEGER,
   decision TEXT CHECK (decision IN ('genuine', 'suspicious', 'fake')),
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Миграция для существующих баз:
+-- ALTER TABLE checks ADD COLUMN IF NOT EXISTS forensics JSONB;
 
 -- Индексы
 CREATE INDEX idx_checks_user ON checks(user_id);
