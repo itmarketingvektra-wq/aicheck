@@ -7,6 +7,12 @@ import {
   buildForensicContext,
 } from "@/lib/forensics";
 
+// Fix invalid \uXXXX sequences that Claude sometimes produces in JSON text
+// e.g. "\учёт" or "\url" — \u followed by non-hex chars breaks JSON.parse
+function sanitizeJsonUnicode(str) {
+  return str.replace(/\\u(?![0-9a-fA-F]{4})/g, "\\\\u");
+}
+
 export async function POST(req) {
   const user = getUserFromRequest(req);
   if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
@@ -73,12 +79,12 @@ export async function POST(req) {
         .replace(/```json\s*/g, "")
         .replace(/```\s*/g, "")
         .trim();
-      parsed = JSON.parse(cleaned);
+      parsed = JSON.parse(sanitizeJsonUnicode(cleaned));
     } catch (parseErr) {
       // Try to extract JSON from mixed content
       const jsonMatch = txt.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
+        parsed = JSON.parse(sanitizeJsonUnicode(jsonMatch[0]));
       } else {
         throw new Error("AI вернул невалидный JSON: " + txt.substring(0, 200));
       }

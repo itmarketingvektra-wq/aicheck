@@ -2,7 +2,9 @@ import { CHECKLIST } from "./checklist";
 
 export function buildPrompt(mediaType, forensicContext) {
   const isPhoto = !mediaType.includes("pdf");
+  const today = new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
   return `Ты — эксперт-аудитор и форензик-аналитик. Твоя ГЛАВНАЯ задача — обнаружить подделку документа.
+Сегодняшняя дата: ${today}. Учитывай это при проверке сроков, дат документов и актуальности реквизитов.
 Документы часто подделывают: меняют цены в PDF-редакторах, замазывают суммы в Photoshop, вставляют чужие реквизиты.
 
 ВЕРНИ ТОЛЬКО JSON (без markdown, без backticks, без пояснений вне JSON).
